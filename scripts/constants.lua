@@ -1,9 +1,9 @@
 
 local Constants = {
     settings = {
-        station_name = 'train_auto_refuel-station-name',
-        min_fuel_value = 'train_auto_refuel-min-fuel-value',
-        log_schedule = 'train_auto_refuel-log-schedule',
+        station_name = 'auto_train_refuel-station-name',
+        min_fuel_value = 'auto_train_refuel-min-fuel-value',
+        log_schedule = 'auto_train_refuel-log-schedule',
     }
 }
 

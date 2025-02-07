@@ -1,4 +1,4 @@
-# Train Auto Refuel
+# Automatic Train Refueler
 
 Manages automatic refueling of trains by sending them to a refuel
 station when they are low on fuel.

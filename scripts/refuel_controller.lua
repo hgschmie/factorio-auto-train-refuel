@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------
--- Train Auto Refueler
+-- Automatic Train Refueler
 ------------------------------------------------------------------------
 
 local util = require('util')
@@ -8,7 +8,7 @@ local const = require('scripts.constants')
 
 ------------------------------------------------------------------------
 
----@class train_refuel_station.Controller
+---@class auto_train_refuel.Controller
 ---@field station_name string
 ---@field min_fuel_value number
 ---@field log_schedule boolean

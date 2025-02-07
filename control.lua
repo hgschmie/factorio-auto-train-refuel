@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------
--- Train Auto Refueler
+-- Automatic Train Refueler
 ------------------------------------------------------------------------
 
 local RefuelController = require('scripts.refuel_controller')

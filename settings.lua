@@ -7,9 +7,9 @@ local const = require('scripts.constants')
 data:extend {
     {
         type = 'string-setting',
-        name = const.settings.station_name,
+        name = const.settings.stop_name,
         setting_type = 'runtime-global',
-        default_value = 'Refuel Station',
+        default_value = 'Refuel Stop',
         order = 'aa',
     },
     {
@@ -27,5 +27,12 @@ data:extend {
         setting_type = 'runtime-global',
         default_value = false,
         order = 'ba',
+    },
+    {
+        type = 'bool-setting',
+        name = const.settings.train_group,
+        setting_type = 'startup',
+        default_value = true,
+        order = 'aa',
     },
 }

@@ -1,6 +1,6 @@
 {
   "name": "auto-train-refuel",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "title": "Automatic Train Refueler",
   "description": "Manages automatic train refueling.",
   "author": "hgschmie",

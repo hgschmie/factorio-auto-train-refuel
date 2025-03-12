@@ -1,7 +1,9 @@
 ---------------------------------------------------------------------------------------------------
-Version: 1.1.1
+Version: 1.2.0
 Date: ????
   Changes:
+    - No longer remove existing interrupts from the schedule.
+    - Only adds refueling after a regular stop.
 ---------------------------------------------------------------------------------------------------
 Version: 1.1.0
 Date: 2025-02-14

@@ -16,12 +16,14 @@ local MAX_CACHE_AGE = 3600 -- one minute
 
 ---@class auto_train_refuel.SaveGroup
 ---@field group string
----@field group_schedule TrainSchedule
+---@field group_schedule (ScheduleRecord[])?
+---@field current integer
 ---@field refuel_stop LuaEntity
 
 ---@class auto_train_refuel.Storage
 ---@field train_groups table<number, auto_train_refuel.SaveGroup>
 ---@field last_station table<number, LuaEntity>
+---@field temp_stop table<number, boolean>
 
 ---@class auto_train_refuel.Controller
 ---@field default_stop_name string
@@ -42,6 +44,7 @@ local RefuelController = {
 function RefuelController:init()
     storage.train_groups = storage.train_groups or {}
     storage.last_station = storage.last_station or {}
+    storage.temp_stop = storage.temp_stop or {}
 end
 
 ------------------------------------------------------------------------
@@ -158,7 +161,7 @@ end
 ---@param train LuaTrain
 ---@return LuaEntity?
 function RefuelController:schedule_refueling(train)
-    if not train.schedule then return end
+    local schedule = train.get_schedule()
 
     local refuel_stops = self:get_refuel_stops(train)
     if #refuel_stops == 0 then
@@ -181,42 +184,49 @@ function RefuelController:schedule_refueling(train)
 
     local refuel_stop = refuel_stops[result.goal_index]
 
+    ---@type AddRecordData
     local fuel_stop_record = {
         station = refuel_stop.backer_name,
-        temporary = true,
         wait_conditions = { { type = 'inactivity', compare_type = 'and', ticks = 120 } },
+        allows_unloading = false,
     }
-
-    ---@type TrainSchedule
-    local current_schedule
 
     local data = self:data()
 
-    if not (self.enable_train_groups and #train.group > 0) then
-        data.train_groups[train.id] = nil
-        current_schedule = util.copy(train.schedule)
-        table.insert(current_schedule.records, current_schedule.current, fuel_stop_record)
-    else
+    if self.enable_train_groups and #train.group > 0 then
+        local records = assert(schedule.get_records())
+        local current = schedule.current
         ---@type auto_train_refuel.SaveGroup
         local save_group = {
+            current = current,
             group = train.group,
-            group_schedule = util.copy(train.schedule),
+            group_schedule = records,
             refuel_stop = refuel_stop,
         }
+
         data.train_groups[train.id] = save_group
 
-        current_schedule = {
-            records = {
-                fuel_stop_record,
-                util.copy(train.schedule.records[train.schedule.current]),
-            },
-            current = 1,
-        }
-    end
+        schedule.group = ''
+        schedule.clear_records()
+        schedule.add_record(fuel_stop_record)
 
-    train.group = ''
-    train.schedule = current_schedule
-    train.go_to_station(train.schedule.current)
+        local record = assert(records[current]) --[[@as AddRecordData ]]
+        assert(not record.temporary)
+
+        schedule.add_record(record)
+    else
+        -- either not a train in a train group or it should ignore train groups
+
+        data.train_groups[train.id] = nil
+
+        local current = schedule.current
+        -- add as the next stop
+        fuel_stop_record.index = { schedule_index = current }
+        fuel_stop_record.temporary = true
+
+        schedule.add_record(fuel_stop_record)
+        schedule.go_to_station(current)
+    end
 
     return refuel_stop
 end
@@ -224,52 +234,36 @@ end
 ---@param train LuaTrain
 ---@return boolean
 function RefuelController:check_for_stop_in_schedule(train)
-    if not train.schedule then return false end
+    local schedule = train.get_schedule()
+    local records = schedule.get_records()
 
-    for _, record in pairs(train.schedule.records) do
+    if not records then return false end
+
+    for _, record in pairs(records) do
         if self.refuel_stops[record.station] then return true end
     end
+
     return false
 end
 
 ---@param train LuaTrain
 ---@return LuaEntity?
 function RefuelController:restore_schedule(train)
-    if not train.schedule then return end
-
-    local refuel_stop
+    local schedule = train.get_schedule()
 
     local data = self:data()
 
     local save_group = data.train_groups[train.id]
-    if self.enable_train_groups and save_group then
-        ---@type auto_train_refuel.SaveGroup?
-        if save_group then
-            refuel_stop = save_group.refuel_stop
-            train.schedule = save_group.group_schedule
-            train.group = save_group.group
-            train.go_to_station(train.schedule.current)
+    data.train_groups[train.id] = nil
 
-            data.train_groups[train.id] = nil
-        end
-    else
-        ---@type TrainSchedule
-        local current_schedule = util.copy(train.schedule)
+    if not (self.enable_train_groups and save_group) then return nil end
 
-        for idx, record in pairs(current_schedule.records) do
-            if self.refuel_stops[record.station] then
-                refuel_stop = self.refuel_stops[record.station]
-                current_schedule.records[idx] = nil
-                if current_schedule.current > idx then
-                    current_schedule.current = current_schedule.current - 1
-                end
-            end
-        end
+    -- restore train group
+    schedule.set_records(save_group.group_schedule)
+    schedule.group = save_group.group
+    schedule.go_to_station(save_group.current)
 
-        train.schedule = (#current_schedule.records > 0) and current_schedule or nil
-    end
-
-    return refuel_stop
+    return save_group.refuel_stop
 end
 
 function RefuelController:check_refuel(train)
@@ -296,9 +290,16 @@ end
 ---@param event EventData.on_train_changed_state
 function RefuelController:trainStateWaitStation(event)
     local train = event.train
-    if not (train.station and train.station.valid) then return end
-
     local data = self:data()
+
+    local schedule = train.get_schedule()
+    local current_stop = schedule.get_record { schedule_index = schedule.current }
+    data.temp_stop[train.id] = current_stop and current_stop.temporary or false
+    data.last_station[train.id] = nil
+
+    -- if this is a temp stop, don't record it in the schedule
+    if data.temp_stop[train.id] or not (train.station and train.station.valid) then return end
+
     data.last_station[train.id] = train.station
 end
 

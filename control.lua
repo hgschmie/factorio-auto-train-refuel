@@ -18,11 +18,12 @@ local function on_train_changed_state(event)
     end
 end
 
+---@param event EventData.on_runtime_mod_setting_changed
 local function on_settings_changed(event)
     RefuelController:configUpdated(event)
 end
 
-local function on_configuration_changed(event)
+local function on_configuration_changed()
     RefuelController:init()
     RefuelController:loadConfig()
 end

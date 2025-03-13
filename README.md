@@ -16,7 +16,7 @@ Starting with Release 1.2.0, the refueler will not modify existing train schedul
 
 If Train group support is enabled and a train is in a train group, the refueler behaves different:
 
-- It looks for a train group specific refuel stop first. This is designaged by using the Refuel stop name (see below) + the train group name. If a stop with that name is found, it will be used for refueling.
+- It looks for a train group specific refuel stop first. This is designated by using the Refuel stop name (see below) + the train group name. E.g. if the Refuel stop name is 'Refuel Station' and the train group name is 'ore delivery', then the refueler will first look for 'Refuel Station ore delivery' before looking for the more generic 'Refuel Station' name. If a stop with either name is found, it will be used for refueling.
 
 - When the train is sent for refueling, it is temporarily removed from the train group. After refueling, it is re-added again. The train group will be temporarily one train short. As all trains in the train group have the same schedule, this can not be avoided.
 

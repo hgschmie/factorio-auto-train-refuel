@@ -2,6 +2,8 @@
 Version: 1.2.1
 Date: ????
   Changes:
+    - add fuel remaining up correctly
+    - minor correctness fixes
 ---------------------------------------------------------------------------------------------------
 Version: 1.2.0
 Date: 2025-03-12

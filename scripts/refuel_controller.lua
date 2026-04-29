@@ -150,12 +150,24 @@ end
 ---@return LuaEntity[] fuel_stops
 function RefuelController:get_refuel_stops(train)
     local fuel_stops
-    if self.enable_train_groups and #train.group > 0 then
+    if self.enable_train_groups and train.group ~= '' then
         fuel_stops = self:locate_stops(self:create_stop_name(train.group))
         if #fuel_stops > 0 then return fuel_stops end
     end
 
     return self:locate_stops(self:create_stop_name())
+end
+
+---@param train LuaTrain
+---@param station LuaEntity|string
+---@return boolean is_refuel_stop true if station is a refuel_stop for this train
+function RefuelController:is_refuel_stop(train, station)
+    local station_name = type(station) == 'string' and station or station.backer_name
+    local refuel_stops = self:get_refuel_stops(train)
+    for _, refuel_stop in pairs(refuel_stops) do
+        if refuel_stop and refuel_stop.valid and refuel_stop.backer_name == station_name then return true end
+    end
+    return false
 end
 
 ---@param train LuaTrain
@@ -166,7 +178,7 @@ function RefuelController:schedule_refueling(train)
     local refuel_stops = self:get_refuel_stops(train)
     if #refuel_stops == 0 then
         self:print({ 'log.stop_not_found', self:pretty_print_train(train) }, true)
-        return
+        return nil
     end
 
     ---@type TrainPathFinderOneGoalResult
@@ -179,7 +191,7 @@ function RefuelController:schedule_refueling(train)
 
     if not result.found_path then
         self:print({ 'log.stop_not_accessible', self:pretty_print_train(train), refuel_stops[1].unit_number }, true)
-        return
+        return nil
     end
 
     local refuel_stop = refuel_stops[result.goal_index]
@@ -193,9 +205,16 @@ function RefuelController:schedule_refueling(train)
 
     local data = self:data()
 
-    if self.enable_train_groups and #train.group > 0 then
+    if self.enable_train_groups and train.group ~= '' then
         local records = assert(schedule.get_records())
         local current = schedule.current
+        local record = assert(records[current]) --[[@as AddRecordData ]]
+        -- refueling on a temporary record is not supported
+        if record.temporary then
+            self:print({ 'log.temp_stop_not_supported', self:pretty_print_train(train) }, true)
+            return nil
+        end
+
         ---@type auto_train_refuel.SaveGroup
         local save_group = {
             current = current,
@@ -209,9 +228,6 @@ function RefuelController:schedule_refueling(train)
         schedule.group = ''
         schedule.clear_records()
         schedule.add_record(fuel_stop_record)
-
-        local record = assert(records[current]) --[[@as AddRecordData ]]
-        assert(not record.temporary)
 
         schedule.add_record(record)
     else
@@ -240,7 +256,7 @@ function RefuelController:check_for_stop_in_schedule(train)
     if not records then return false end
 
     for _, record in pairs(records) do
-        if self.refuel_stops[record.station] then return true end
+        if not record.temporary and self:is_refuel_stop(train, record.station) then return true end
     end
 
     return false
@@ -277,7 +293,7 @@ function RefuelController:check_refuel(train)
 
             if fuelInventory then
                 for _, item in pairs(fuelInventory.get_contents()) do
-                    totalFuelValue = item.count * prototypes.item[item.name].fuel_value
+                    totalFuelValue = totalFuelValue + item.count * prototypes.item[item.name].fuel_value
                 end
             end
             if (totalFuelValue / 1000000) <= self.min_fuel_value then return true end
@@ -317,7 +333,7 @@ function RefuelController:trainStateLeaveStation(event)
         return
     end
 
-    if self.refuel_stops[station.backer_name] then
+    if self:is_refuel_stop(train, station) then
         -- train left a refuel station.
         self:restore_schedule(train)
     else

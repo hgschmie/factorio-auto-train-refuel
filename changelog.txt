@@ -1,7 +1,10 @@
 ---------------------------------------------------------------------------------------------------
-Version: 1.2.2
+Version: 1.3.0
 Date: ????
   Changes:
+    - adds a remote interface to allow locomotive mods to register if then don't need refueling.
+      This is compatible to the FuelTrainStop mod that was never updated to Factorio 2.0.
+    - Ignore 'ElectricTrain' locomotives that do not need refueling.
 ---------------------------------------------------------------------------------------------------
 Version: 1.2.1
 Date: 2026-04-28

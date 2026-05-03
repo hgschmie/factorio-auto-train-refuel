@@ -37,13 +37,21 @@ local function register_events()
     RefuelController:loadConfig()
 end
 
+local function register_remote()
+    if not remote.interfaces['FuelTrainStop'] then
+        remote.add_interface('FuelTrainStop', { exclude_from_fuel_schedule = function(name) RefuelController:addExclusion(name) end })
+    end
+end
+
 local function on_init()
     RefuelController:init()
     register_events()
+    register_remote()
 end
 
 local function on_load()
     register_events()
+    register_remote()
 end
 
 script.on_load(on_load)

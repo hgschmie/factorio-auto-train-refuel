@@ -22,6 +22,20 @@ If Train group support is enabled and a train is in a train group, the refueler 
 
 If a train is the last train in a train group, the train group temporarily disappears. It will be re-added when the train leaves the refuel station.
 
+## Support trains that do not need refueling
+
+If a mod adds a locomotive type that does not need refueling, it can register these with the mod using a remote interface. This interface is compatible to the [Automatic Train Fuel Stop](https://mods.factorio.com/mod/FuelTrainStop) mod.
+
+If you are a mod author and want to exclude your locomotives from refueling, make a remote call like this for the name of each locomotive that you add:
+
+```lua
+if remote.interfaces['FuelTrainStop'] then
+    remote.call("FuelTrainStop", "exclude_from_fuel_schedule", '<<your-locomotive-name>>')
+end
+```
+
+By default, the mod automatically ignores the Electric Locomotives from the [ElectricTrain](https://mods.factorio.com/mod/ElectricTrain2) mod.
+
 ## Mod settings
 
 ### Refuel Stop Name (auto_train_refuel-stop-name) - per Map, string, default is 'Refuel Stop'
@@ -52,6 +66,6 @@ Enable support for trains in train groups. If this setting is not active, trains
 
 ## Legal stuff
 
-This mod is (C) 2025 Henning Schmiedehausen (@hgschmie), licensed under the MIT license.
+This mod is (C) 2025-2026 Henning Schmiedehausen (@hgschmie), licensed under the MIT license.
 
 It is the spiritual successor to [Train Refuel stop](https://mods.factorio.com/mod/TrainRefuelstop) which was never ported to Factorio 2.0. The original code was written by @stever1388 and put into public domain. Most of the code has been rewritten for Factorio 2.0.

@@ -31,12 +31,19 @@ local MAX_CACHE_AGE = 3600 -- one minute
 ---@field log_schedule boolean
 ---@field enable_train_groups boolean
 ---@field refuel_stops table<string, auto_train_refuel.RefuelStationEntry>
+---@field ignored_train_types table<string, boolean>
 local RefuelController = {
     default_stop_name = 'no_name_set',
     min_fuel_value = 100,
     log_schedule = false,
     enable_train_groups = true,
-    refuel_stops = {}
+    refuel_stops = {},
+    ignored_train_types = {
+        -- ElectricTrain mod - https://mods.factorio.com/mod/ElectricTrain2
+        ['et-electric-locomotive-1'] = true,
+        ['et-electric-locomotive-2'] = true,
+        ['et-electric-locomotive-3'] = true,
+    },
 }
 
 ------------------------------------------------------------------------
@@ -105,6 +112,14 @@ function RefuelController:data()
 end
 
 ------------------------------------------------------------------------
+-- Add exclusions for trains that do not need refuel
+------------------------------------------------------------------------
+
+---@param name string
+function RefuelController:addExclusion(name)
+    if not name then return end
+    self.ignored_train_types[name] = true
+end
 
 ---@param train LuaTrain
 ---@return string? name
@@ -288,15 +303,17 @@ function RefuelController:check_refuel(train)
     local locomotives = train.locomotives --[[@as table<string, LuaEntity[]>]]
     for _, movers in pairs(locomotives) do
         for _, locomotive in ipairs(movers) do
-            local fuelInventory = locomotive.get_fuel_inventory()
-            local totalFuelValue = locomotive.burner.remaining_burning_fuel
+            if not self.ignored_train_types[locomotive.name] then
+                local fuelInventory = locomotive.get_fuel_inventory()
+                local totalFuelValue = locomotive.burner.remaining_burning_fuel
 
-            if fuelInventory then
-                for _, item in pairs(fuelInventory.get_contents()) do
-                    totalFuelValue = totalFuelValue + item.count * prototypes.item[item.name].fuel_value
+                if fuelInventory then
+                    for _, item in pairs(fuelInventory.get_contents()) do
+                        totalFuelValue = totalFuelValue + item.count * prototypes.item[item.name].fuel_value
+                    end
                 end
+                if (totalFuelValue / 1000000) <= self.min_fuel_value then return true end
             end
-            if (totalFuelValue / 1000000) <= self.min_fuel_value then return true end
         end
     end
 

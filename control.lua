@@ -46,13 +46,14 @@ end
 local function on_init()
     RefuelController:init()
     register_events()
-    register_remote()
 end
 
 local function on_load()
     register_events()
-    register_remote()
 end
+
+-- register APIs early (before on_init/on_load)
+register_remote()
 
 script.on_load(on_load)
 script.on_init(on_init)

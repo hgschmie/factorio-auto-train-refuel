@@ -162,11 +162,14 @@ function RefuelController:locate_stops(name)
 end
 
 ---@param train LuaTrain
+---@param train_group string?
 ---@return LuaEntity[] fuel_stops
-function RefuelController:get_refuel_stops(train)
+function RefuelController:get_refuel_stops(train, train_group)
     local fuel_stops
-    if self.enable_train_groups and train.group ~= '' then
-        fuel_stops = self:locate_stops(self:create_stop_name(train.group))
+    train_group = train_group or train.group
+
+    if self.enable_train_groups and (train_group ~= '') then
+        fuel_stops = self:locate_stops(self:create_stop_name(train_group))
         if #fuel_stops > 0 then return fuel_stops end
     end
 
@@ -177,8 +180,11 @@ end
 ---@param station LuaEntity|string
 ---@return boolean is_refuel_stop true if station is a refuel_stop for this train
 function RefuelController:is_refuel_stop(train, station)
+    local data = self:data()
+
     local station_name = type(station) == 'string' and station or station.backer_name
-    local refuel_stops = self:get_refuel_stops(train)
+    local train_group = ((train.group ~= '') and train.group) or (data.train_groups[train.id] and data.train_groups[train.id].group) or nil
+    local refuel_stops = self:get_refuel_stops(train, train_group)
     for _, refuel_stop in pairs(refuel_stops) do
         if refuel_stop and refuel_stop.valid and refuel_stop.backer_name == station_name then return true end
     end

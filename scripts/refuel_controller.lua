@@ -247,6 +247,8 @@ function RefuelController:schedule_refueling(train)
         data.train_groups[train.id] = save_group
 
         schedule.group = ''
+        fuel_stop_record.temporary = true
+
         schedule.clear_records()
         schedule.add_record(fuel_stop_record)
 
@@ -336,10 +338,12 @@ function RefuelController:trainStateWaitStation(event)
     data.temp_stop[train.id] = current_stop and current_stop.temporary or false
     data.last_station[train.id] = nil
 
-    -- if this is a temp stop, don't record it in the schedule
-    if data.temp_stop[train.id] or not (train.station and train.station.valid) then return end
+    if not (train.station and train.station.valid) then return end
 
-    data.last_station[train.id] = train.station
+    -- record the stop if it is not a temp stop or is a refuel stop
+    if (not data.temp_stop[train.id]) or self:is_refuel_stop(train, train.station) then
+        data.last_station[train.id] = train.station
+    end
 end
 
 ---@param event EventData.on_train_changed_state

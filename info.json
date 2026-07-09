@@ -11,7 +11,7 @@
     "base >= 2.0.39"
   ],
   "package": {
-    "git_publish_branch": "main",
+    "git_publish_branch": "2.0-maint",
     "readme": "README.md",
     "sync_portal_details": true,
     "ignore": [

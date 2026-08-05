@@ -71,7 +71,7 @@ function RefuelController:init_name(old_name)
     self.refuel_stops = {}
 
     if old_name then
-        self:print({ 'log.change_stop_name', old_name, self.default_stop_name }, true)
+        const:print { const:locale('change_stop_name'), old_name, self.default_stop_name }
     end
 end
 
@@ -80,28 +80,12 @@ function RefuelController:init_fuel(old_value)
     self.min_fuel_value = settings.global[const.settings.min_fuel_value].value --[[@as number]]
 
     if old_value then
-        self:print({ 'log.change_min_fuel_value', old_value, self.min_fuel_value }, true)
+        const:print { const:locale('change_min_fuel_value'), old_value, self.min_fuel_value }
     end
 end
 
 function RefuelController:init_log()
     self.log_schedule = settings.global[const.settings.log_schedule].value --[[@as boolean]]
-end
-
-------------------------------------------------------------------------
-
----@param msg any
----@param force boolean?
-function RefuelController:print(msg, force)
-    ---@type PrintSettings
-    local print_settings = {
-        skip = defines.print_skip.if_visible,
-        sound = force and defines.print_sound.always or defines.print_sound.use_player_settings,
-    }
-
-    if self.log_schedule or force then
-        game.print(msg, print_settings)
-    end
 end
 
 ------------------------------------------------------------------------
@@ -198,7 +182,7 @@ function RefuelController:schedule_refueling(train)
 
     local refuel_stops = self:get_refuel_stops(train)
     if #refuel_stops == 0 then
-        self:print({ 'log.stop_not_found', self:pretty_print_train(train) }, true)
+        const:print { const:locale('stop_not_found'), self:pretty_print_train(train) }
         return nil
     end
 
@@ -211,7 +195,7 @@ function RefuelController:schedule_refueling(train)
     }
 
     if not result.found_path then
-        self:print({ 'log.stop_not_accessible', self:pretty_print_train(train), assert(refuel_stops[1]).unit_number }, true)
+       const:print { const:locale('stop_not_accessible'), self:pretty_print_train(train), assert(refuel_stops[1]).unit_number }
         return nil
     end
 
@@ -236,7 +220,7 @@ function RefuelController:schedule_refueling(train)
         local record = assert(records[current]) --[[@as AddRecordData ]]
         -- refueling on a temporary record is not supported
         if record.temporary then
-            self:print({ 'log.temp_stop_not_supported', self:pretty_print_train(train) }, true)
+            const:print { const:locale('temp_stop_not_supported'), self:pretty_print_train(train) }
             return nil
         end
 
@@ -374,13 +358,13 @@ function RefuelController:trainStateLeaveStation(event)
 
         if needs_refuel and not stop_is_in_schedule then
             local stop = self:schedule_refueling(train)
-            if stop then
-                self:print { 'log.schedule_refuel', self:pretty_print_train(train), stop.unit_number }
+            if stop and self.log_schedule then
+                const:print { const:locale('schedule_refuel'), self:pretty_print_train(train), stop.unit_number }
             end
         elseif stop_is_in_schedule and not needs_refuel then
             local stop = self:restore_schedule(train)
-            if stop then
-                self:print { 'log.cancel_refuel', self:pretty_print_train(train), stop.unit_number }
+            if stop and self.log_schedule then
+                const:print { const:locale('cancel_refuel'), self:pretty_print_train(train), stop.unit_number }
             end
         end
     end

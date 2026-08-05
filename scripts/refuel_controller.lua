@@ -2,8 +2,6 @@
 -- Automatic Train Refueler
 ------------------------------------------------------------------------
 
-local util = require('util')
-
 local const = require('scripts.constants')
 
 ------------------------------------------------------------------------

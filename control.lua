@@ -3,6 +3,7 @@
 ------------------------------------------------------------------------
 
 local RefuelController = require('scripts.refuel_controller')
+local Console = require('scripts.console')
 
 ---@param event EventData.on_train_changed_state
 local function on_train_changed_state(event)
@@ -34,7 +35,10 @@ local function register_events()
 
     script.on_configuration_changed(on_configuration_changed)
 
+    Console:registerCommands()
     RefuelController:loadConfig()
+
+    Console.refuel_controller = RefuelController
 end
 
 local function register_remote()

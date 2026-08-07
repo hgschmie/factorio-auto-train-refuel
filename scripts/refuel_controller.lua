@@ -105,14 +105,18 @@ end
 
 ---@param train LuaTrain
 ---@return string? name
+---@return integer? id
 function RefuelController:get_train_name(train)
     if not train.valid then return end
     local loco = train.locomotives.front_movers and train.locomotives.front_movers[1] or train.locomotives.back_movers[1]
-    return loco and loco.backer_name or nil
+    if loco then return loco.backer_name, loco.unit_number end
+    return nil, nil
 end
 
 function RefuelController:pretty_print_train(train)
-    return string.format('[train=%d] %s', train.id, self:get_train_name(train) or '')
+    local name, id = self:get_train_name(train)
+    if id then return string.format('[train=%d] %s', id, name or '') end
+    return '<unknown train>'
 end
 
 ---@param group string?

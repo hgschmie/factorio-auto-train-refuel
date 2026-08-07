@@ -1,6 +1,13 @@
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.1
 Date: ????
+  Minor Features:
+    - Add console command to list all currently excluded locomotives.
+  Bugfixes:
+    - print train rich text correctly
+---------------------------------------------------------------------------------------------------
+Version: 1.3.3
+Date: 2026-08-07
   Bugfixes:
     - print train rich text correctly
 ---------------------------------------------------------------------------------------------------
@@ -8,6 +15,9 @@ Version: 2.0.0
 Date: 2026-06-24
   Changes:
     - Update to Factorio 2.1
+---------------------------------------------------------------------------------------------------
+Version: 1.3.2
+Date: 2026-08-05
   Minor Features:
     - Group Refuel Stops are now temporary stops
     - Add console command to list all currently excluded locomotives.

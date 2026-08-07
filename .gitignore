@@ -3,3 +3,4 @@
 *.bak
 /.vscode/
 .claude
+.luarc.json

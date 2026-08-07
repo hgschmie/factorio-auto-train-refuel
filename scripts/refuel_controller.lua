@@ -1,4 +1,4 @@
-------------------------------------------------------------------------
+--------------------------------------------------------------------------
 -- Automatic Train Refueler
 ------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ local MAX_CACHE_AGE = 3600 -- one minute
 
 ---@class auto_train_refuel.SaveGroup
 ---@field group string
----@field group_schedule (ScheduleRecord[])?
+---@field group_schedule ScheduleRecord[]
 ---@field current integer
 ---@field refuel_stop LuaEntity
 
@@ -61,12 +61,12 @@ function RefuelController:loadConfig()
     self:init_fuel()
     self:init_log()
 
-    self.enable_train_groups = settings.startup[const.settings.train_group].value
+    self.enable_train_groups = settings.startup[const.settings.train_group].value --[[@as boolean]]
 end
 
 ---@param old_name string?
 function RefuelController:init_name(old_name)
-    self.default_stop_name = settings.global[const.settings.stop_name].value
+    self.default_stop_name = settings.global[const.settings.stop_name].value --[[@as string]]
 
     self.refuel_stops = {}
 
@@ -77,7 +77,7 @@ end
 
 ---@param old_value number?
 function RefuelController:init_fuel(old_value)
-    self.min_fuel_value = settings.global[const.settings.min_fuel_value].value
+    self.min_fuel_value = settings.global[const.settings.min_fuel_value].value --[[@as number]]
 
     if old_value then
         self:print({ 'log.change_min_fuel_value', old_value, self.min_fuel_value }, true)
@@ -85,7 +85,7 @@ function RefuelController:init_fuel(old_value)
 end
 
 function RefuelController:init_log()
-    self.log_schedule = settings.global[const.settings.log_schedule].value
+    self.log_schedule = settings.global[const.settings.log_schedule].value --[[@as boolean]]
 end
 
 ------------------------------------------------------------------------
@@ -108,7 +108,7 @@ end
 
 ---@return auto_train_refuel.Storage data
 function RefuelController:data()
-    return storage
+    return storage --[[@as auto_train_refuel.Storage]]
 end
 
 ------------------------------------------------------------------------
@@ -202,7 +202,7 @@ function RefuelController:schedule_refueling(train)
         return nil
     end
 
-    ---@type TrainPathFinderOneGoalResult
+    ---@cast result TrainPathFinderOneGoalResult
     local result = game.train_manager.request_train_path {
         type = 'any-goal-accessible',
         train = train,
@@ -211,14 +211,18 @@ function RefuelController:schedule_refueling(train)
     }
 
     if not result.found_path then
-        self:print({ 'log.stop_not_accessible', self:pretty_print_train(train), refuel_stops[1].unit_number }, true)
+        self:print({ 'log.stop_not_accessible', self:pretty_print_train(train), assert(refuel_stops[1]).unit_number }, true)
         return nil
     end
 
+    ---@diagnostic disable-next-line: undefined-field
+    -- result.goal_index is always defined when result.found_path is true
+    ---@type LuaEntity
     local refuel_stop = refuel_stops[result.goal_index]
 
     ---@type AddRecordData
     local fuel_stop_record = {
+        ---@diagnostic disable-next-line: assign-type-mismatch,need-check-nil
         station = refuel_stop.backer_name,
         wait_conditions = { { type = 'inactivity', compare_type = 'and', ticks = 120 } },
         allows_unloading = false,
@@ -279,7 +283,7 @@ function RefuelController:check_for_stop_in_schedule(train)
     if not records then return false end
 
     for _, record in pairs(records) do
-        if not record.temporary and self:is_refuel_stop(train, record.station) then return true end
+        if not record.temporary and self:is_refuel_stop(train, record.station or '') then return true end
     end
 
     return false
@@ -313,7 +317,7 @@ function RefuelController:check_refuel(train)
         for _, locomotive in ipairs(movers) do
             if not self.ignored_train_types[locomotive.name] then
                 local fuelInventory = locomotive.get_fuel_inventory()
-                local totalFuelValue = locomotive.burner.remaining_burning_fuel
+                local totalFuelValue = locomotive.burner and locomotive.burner.remaining_burning_fuel or 0
 
                 if fuelInventory then
                     for _, item in pairs(fuelInventory.get_contents()) do

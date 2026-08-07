@@ -1,7 +1,12 @@
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.2
 Date: ????
-  Changes:
+  Bugfixes:
+    - A train that departs another station while on its way to the refuel stop is no longer
+      dispatched a second time. This could permanently remove the train from its train group
+      and discard its schedule.
+    - Changing the refuel stop name now restores the schedule of trains that are on their way
+      to refuel.
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.1
 Date: 2026-08-07

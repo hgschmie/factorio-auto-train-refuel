@@ -19,9 +19,9 @@ local MAX_CACHE_AGE = 3600 -- one minute
 ---@field refuel_stop    LuaEntity
 
 ---@class auto_train_refuel.Storage
----@field train_groups table<number, auto_train_refuel.SaveGroup>
----@field last_station table<number, LuaEntity>
----@field temp_stop    table<number, boolean>
+---@field train_groups table<uint32, auto_train_refuel.SaveGroup>
+---@field last_station table<uint32, LuaEntity>
+---@field temp_stop    table<uint32, boolean>
 
 ---@class auto_train_refuel.Controller
 ---@field default_stop_name   string
@@ -261,15 +261,16 @@ function RefuelController:schedule_refueling(train)
 end
 
 ---@param train LuaTrain
----@return boolean
+---@return boolean has_stop true if any refuel stop is already scheduled for this train
 function RefuelController:check_for_stop_in_schedule(train)
     local schedule = train.get_schedule()
     local records = schedule.get_records()
 
     if not records then return false end
 
+    -- temporary records must be included; schedule_refueling adds its refuel stop as a temporary record
     for _, record in pairs(records) do
-        if not record.temporary and self:is_refuel_stop(train, record.station or '') then return true end
+        if self:is_refuel_stop(train, record.station or '') then return true end
     end
 
     return false
@@ -373,13 +374,15 @@ function RefuelController:trainStateLeaveStation(event)
 end
 
 function RefuelController:clean_schedule()
-    for _, force in pairs(game.forces) do
-        for _, train in pairs(game.train_manager.get_trains {
-            force = force,
-        }) do
-            if self:check_for_stop_in_schedule(train) then
-                self:restore_schedule(train)
-            end
+    local data = self:data()
+
+    -- iterate the dispatch records, not every train; this does not depend on the stop name still matching
+    for train_id in pairs(data.train_groups) do
+        local train = game.train_manager.get_train_by_id(train_id)
+        if train and train.valid then
+            self:restore_schedule(train)
+        else
+            data.train_groups[train_id] = nil
         end
     end
 end

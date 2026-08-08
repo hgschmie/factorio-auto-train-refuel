@@ -16,7 +16,7 @@ local MAX_CACHE_AGE = 3600 -- one minute
 ---@field group          string
 ---@field group_schedule ScheduleRecord[]
 ---@field current        integer
----@field refuel_stop    LuaEntity
+---@field refuel_stop_id uint64
 
 ---@class auto_train_refuel.Storage
 ---@field train_groups table<uint32, auto_train_refuel.SaveGroup>
@@ -125,11 +125,24 @@ function RefuelController:create_stop_name(group)
     return group and (self.default_stop_name .. ' ' .. group) or self.default_stop_name
 end
 
+---@param stops LuaEntity[]
+---@param name string
+---@return boolean current
+local function stops_are_current(stops, name)
+    for _, stop in pairs(stops) do
+        if not (stop.valid and stop.backer_name == name) then return false end
+    end
+    return true
+end
+
 ---@param name string
 ---@return LuaEntity[] fuel_stops
 function RefuelController:locate_stops(name)
-    if self.refuel_stops[name] and (game.tick - MAX_CACHE_AGE < self.refuel_stops[name].tick) then
-        return self.refuel_stops[name].refuel_stops
+    local cached = self.refuel_stops[name]
+
+    -- a cached stop may have been destroyed or renamed; either one invalidates the entry
+    if cached and (game.tick - MAX_CACHE_AGE < cached.tick) and stops_are_current(cached.refuel_stops, name) then
+        return cached.refuel_stops
     end
 
     local stops = game.train_manager.get_train_stops {
@@ -142,6 +155,8 @@ function RefuelController:locate_stops(name)
             refuel_stops = stops,
             tick = game.tick,
         }
+    else
+        self.refuel_stops[name] = nil
     end
 
     return stops
@@ -178,7 +193,7 @@ function RefuelController:is_refuel_stop(train, station)
 end
 
 ---@param train LuaTrain
----@return LuaEntity?
+---@return uint64? refuel_stop_id unit number of the stop the train was sent to
 function RefuelController:schedule_refueling(train)
     local schedule = train.get_schedule()
 
@@ -231,7 +246,7 @@ function RefuelController:schedule_refueling(train)
             current = current,
             group = train.group,
             group_schedule = records,
-            refuel_stop = refuel_stop,
+            refuel_stop_id = assert(refuel_stop.unit_number)
         }
 
         data.train_groups[train.id] = save_group
@@ -257,7 +272,7 @@ function RefuelController:schedule_refueling(train)
         schedule.go_to_station(current)
     end
 
-    return refuel_stop
+    return refuel_stop.unit_number
 end
 
 ---@param train LuaTrain
@@ -277,7 +292,7 @@ function RefuelController:check_for_stop_in_schedule(train)
 end
 
 ---@param train LuaTrain
----@return LuaEntity?
+---@return uint64? refuel_stop_id unit number of the stop the train was sent to
 function RefuelController:restore_schedule(train)
     local schedule = train.get_schedule()
 
@@ -293,7 +308,7 @@ function RefuelController:restore_schedule(train)
     schedule.group = save_group.group
     schedule.go_to_station(save_group.current)
 
-    return save_group.refuel_stop
+    return save_group.refuel_stop_id
 end
 
 function RefuelController:check_refuel(train)
@@ -360,14 +375,14 @@ function RefuelController:trainStateLeaveStation(event)
         local stop_is_in_schedule = self:check_for_stop_in_schedule(train)
 
         if needs_refuel and not stop_is_in_schedule then
-            local stop = self:schedule_refueling(train)
-            if stop and self.log_schedule then
-                const:print { const:locale('schedule_refuel'), self:pretty_print_train(train), stop.unit_number }
+            local stop_id = self:schedule_refueling(train)
+            if stop_id and self.log_schedule then
+                const:print { const:locale('schedule_refuel'), self:pretty_print_train(train), stop_id }
             end
         elseif stop_is_in_schedule and not needs_refuel then
-            local stop = self:restore_schedule(train)
-            if stop and self.log_schedule then
-                const:print { const:locale('cancel_refuel'), self:pretty_print_train(train), stop.unit_number }
+            local stop_id = self:restore_schedule(train)
+            if stop_id and self.log_schedule then
+                const:print { const:locale('cancel_refuel'), self:pretty_print_train(train), stop_id }
             end
         end
     end

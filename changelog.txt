@@ -7,6 +7,10 @@ Date: ????
       and discard its schedule.
     - Changing the refuel stop name now restores the schedule of trains that are on their way
       to refuel.
+    - Destroying or renaming a refuel stop no longer causes an error when the next train is sent
+      for refueling.
+    - A refuel stop that was renamed is no longer used as a refuel target until it is renamed
+      back.
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.1
 Date: 2026-08-07

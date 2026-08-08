@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 2.1.0
-Date: ????
+Date: 2026-08-07
   Bugfixes:
     - A train that departs another station while on its way to the refuel stop is no longer
       dispatched a second time. This could permanently remove the train from its train group

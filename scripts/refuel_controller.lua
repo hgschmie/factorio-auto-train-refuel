@@ -13,10 +13,11 @@ local MAX_CACHE_AGE = 3600 -- one minute
 ---@field tick         number
 
 ---@class auto_train_refuel.SaveGroup
----@field group          string
----@field group_schedule ScheduleRecord[]
----@field current        integer
----@field refuel_stop_id uint64
+---@field group            string
+---@field group_schedule   ScheduleRecord[]
+---@field group_interrupts ScheduleInterrupt[]
+---@field current          integer
+---@field refuel_stop_id   uint64
 
 ---@class auto_train_refuel.Storage
 ---@field train_groups table<uint32, auto_train_refuel.SaveGroup>
@@ -231,6 +232,7 @@ function RefuelController:schedule_refueling(train)
 
     if self.enable_train_groups and train.group ~= '' then
         local records = assert(schedule.get_records())
+        local interrupts = schedule.get_interrupts()
         local current = schedule.current
         local record = assert(records[current]) --[[@as AddRecordData ]]
         -- refueling on a temporary record is not supported
@@ -244,6 +246,7 @@ function RefuelController:schedule_refueling(train)
             current = current,
             group = train.group,
             group_schedule = records,
+            group_interrupts = interrupts,
             refuel_stop_id = assert(refuel_stop.unit_number)
         }
 
@@ -304,7 +307,19 @@ function RefuelController:restore_schedule(train)
     -- restore train group
     schedule.set_records(save_group.group_schedule)
     schedule.group = save_group.group
-    schedule.go_to_station(save_group.current)
+
+    -- add_interrupt is a no-op when an interrupt of that name already exists, so this only fills in
+    -- what was lost if the group was deleted along with its last train
+    for _, interrupt in pairs(save_group.group_interrupts or {}) do
+        schedule.add_interrupt(interrupt)
+    end
+
+    -- the group schedule may have shrunk while the train was away
+    local record_count = schedule.get_record_count() or 0
+    if record_count > 0 then
+        local index = save_group.current <= record_count and save_group.current or record_count
+        schedule.go_to_station(index)
+    end
 
     return save_group.refuel_stop_id
 end

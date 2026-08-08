@@ -21,7 +21,6 @@ local MAX_CACHE_AGE = 3600 -- one minute
 ---@class auto_train_refuel.Storage
 ---@field train_groups table<uint32, auto_train_refuel.SaveGroup>
 ---@field last_station table<uint32, LuaEntity>
----@field temp_stop    table<uint32, boolean>
 
 ---@class auto_train_refuel.Controller
 ---@field default_stop_name   string
@@ -49,7 +48,6 @@ local RefuelController = {
 function RefuelController:init()
     storage.train_groups = storage.train_groups or {}
     storage.last_station = storage.last_station or {}
-    storage.temp_stop = storage.temp_stop or {}
 end
 
 ------------------------------------------------------------------------
@@ -334,6 +332,36 @@ function RefuelController:check_refuel(train)
     return false
 end
 
+---@param event EventData.on_train_created
+function RefuelController:trainCreated(event)
+    local data = self:data()
+    local new_id = event.train.id
+
+    -- coupling/decoupling gives the train a new id; carry the bookkeeping over so a train that is
+    -- out for refueling is still recognized when it comes back
+    for _, old_id in pairs { event.old_train_id_1, event.old_train_id_2 } do
+        if old_id ~= new_id then
+            data.train_groups[new_id] = data.train_groups[new_id] or data.train_groups[old_id]
+            data.last_station[new_id] = data.last_station[new_id] or data.last_station[old_id]
+
+            data.train_groups[old_id] = nil
+            data.last_station[old_id] = nil
+        end
+    end
+end
+
+---Trains deleted outright raise no event, so entries can only be pruned by checking existence.
+function RefuelController:cleanup_storage()
+    local data = self:data()
+
+    for _, entries in pairs { data.train_groups, data.last_station } do
+        for train_id in pairs(entries) do
+            local train = game.train_manager.get_train_by_id(train_id)
+            if not (train and train.valid) then entries[train_id] = nil end
+        end
+    end
+end
+
 ---@param event EventData.on_train_changed_state
 function RefuelController:trainStateWaitStation(event)
     local train = event.train
@@ -341,13 +369,14 @@ function RefuelController:trainStateWaitStation(event)
 
     local schedule = train.get_schedule()
     local current_stop = schedule.get_record { schedule_index = schedule.current }
-    data.temp_stop[train.id] = current_stop and current_stop.temporary or false
+    local temp_stop = current_stop and current_stop.temporary or false
+
     data.last_station[train.id] = nil
 
     if not (train.station and train.station.valid) then return end
 
     -- record the stop if it is not a temp stop or is a refuel stop
-    if (not data.temp_stop[train.id]) or self:is_refuel_stop(train, train.station) then
+    if (not temp_stop) or self:is_refuel_stop(train, train.station) then
         data.last_station[train.id] = train.station
     end
 end

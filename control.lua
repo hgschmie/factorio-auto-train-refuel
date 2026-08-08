@@ -5,6 +5,8 @@
 local RefuelController = require('scripts.refuel_controller')
 local Console = require('scripts.console')
 
+local CLEANUP_INTERVAL = 36000 -- ten minutes
+
 ---@param event EventData.on_train_changed_state
 local function on_train_changed_state(event)
     local train = event.train
@@ -19,6 +21,15 @@ local function on_train_changed_state(event)
     end
 end
 
+---@param event EventData.on_train_created
+local function on_train_created(event)
+    RefuelController:trainCreated(event)
+end
+
+local function on_cleanup()
+    RefuelController:cleanup_storage()
+end
+
 ---@param event EventData.on_runtime_mod_setting_changed
 local function on_settings_changed(event)
     RefuelController:configUpdated(event)
@@ -27,11 +38,17 @@ end
 local function on_configuration_changed()
     RefuelController:init()
     RefuelController:loadConfig()
+
+    -- a prototype or mod change can delete trains outright; drop what they left behind
+    RefuelController:cleanup_storage()
 end
 
 local function register_events()
     script.on_event(defines.events.on_train_changed_state, on_train_changed_state)
+    script.on_event(defines.events.on_train_created, on_train_created)
     script.on_event(defines.events.on_runtime_mod_setting_changed, on_settings_changed)
+
+    script.on_nth_tick(CLEANUP_INTERVAL, on_cleanup)
 
     script.on_configuration_changed(on_configuration_changed)
 

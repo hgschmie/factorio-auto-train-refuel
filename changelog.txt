@@ -1,5 +1,5 @@
 ---------------------------------------------------------------------------------------------------
-Version: 2.0.2
+Version: 2.1.0
 Date: ????
   Bugfixes:
     - A train that departs another station while on its way to the refuel stop is no longer
@@ -11,6 +11,11 @@ Date: ????
       for refueling.
     - A refuel stop that was renamed is no longer used as a refuel target until it is renamed
       back.
+    - A train that is coupled or decoupled while on its way to refuel keeps its refuel state and
+      is still returned to its train group afterwards.
+  Changes:
+    - Internal bookkeeping for trains that no longer exist is now discarded instead of being kept
+      in the save file forever. Existing save files are cleaned up once on load.
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.1
 Date: 2026-08-07

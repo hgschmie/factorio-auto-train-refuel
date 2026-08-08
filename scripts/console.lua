@@ -17,14 +17,17 @@ local function list_excluded(data)
 
     for name, status in pairs(Console.refuel_controller.ignored_train_types) do
         if status then
-            local local_name = prototypes.entity[name] and prototypes.entity[name].localised_name or name or '<unknown>'
-            excluded_locos[#excluded_locos + 1] = local_name
+            excluded_locos[#excluded_locos + 1] = ('[entity=%s]'):format(name)
             excluded_locos[#excluded_locos + 1] = ', '
         end
     end
     excluded_locos[#excluded_locos] = nil
 
-    const:print({ '', { const:locale('command_list_excluded_msg') }, ' ', excluded_locos }, player)
+    if #excluded_locos > 0 then
+        const:print({ '', { const:locale('command_list_excluded_msg') }, ' ', excluded_locos }, player)
+    else
+        const:print({ const:locale('command_list_excluded_none') }, player)
+    end
 end
 
 function Console:registerCommands()

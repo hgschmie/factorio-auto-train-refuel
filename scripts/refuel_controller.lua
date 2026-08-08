@@ -40,6 +40,8 @@ local RefuelController = {
 }
 
 ------------------------------------------------------------------------
+-- init / config
+------------------------------------------------------------------------
 
 function RefuelController:init()
     storage.train_groups = storage.train_groups or {}
@@ -50,18 +52,16 @@ function RefuelController:init()
     end
 end
 
-------------------------------------------------------------------------
-
 function RefuelController:loadConfig()
-    self:init_name()
-    self:init_fuel()
-    self:init_log()
+    self:initName()
+    self:initFuel()
+    self:initLog()
 
     self.enable_train_groups = settings.startup[const.settings.train_group].value --[[@as boolean]]
 end
 
 ---@param old_name string?
-function RefuelController:init_name(old_name)
+function RefuelController:initName(old_name)
     self.default_stop_name = settings.global[const.settings.stop_name].value --[[@as string]]
 
     self.refuel_stops = {}
@@ -72,7 +72,7 @@ function RefuelController:init_name(old_name)
 end
 
 ---@param old_value number?
-function RefuelController:init_fuel(old_value)
+function RefuelController:initFuel(old_value)
     self.min_fuel_value = settings.global[const.settings.min_fuel_value].value --[[@as number]]
 
     if old_value then
@@ -80,7 +80,7 @@ function RefuelController:init_fuel(old_value)
     end
 end
 
-function RefuelController:init_log()
+function RefuelController:initLog()
     self.log_schedule = settings.global[const.settings.log_schedule].value --[[@as boolean]]
 end
 
@@ -92,41 +92,39 @@ function RefuelController:data()
 end
 
 ------------------------------------------------------------------------
--- Add exclusions for trains that do not need refuel
-------------------------------------------------------------------------
-
----@param name string
-function RefuelController:addExclusion(name)
-    if not name then return end
-    self.ignored_train_types[name] = true
-end
 
 ---@param train LuaTrain
 ---@return string? name
 ---@return integer? id
-function RefuelController:get_train_name(train)
+local function get_train_name(train)
     if not train.valid then return end
     local loco = train.locomotives.front_movers and train.locomotives.front_movers[1] or train.locomotives.back_movers[1]
     if loco then return loco.backer_name, loco.unit_number end
     return nil, nil
 end
 
-function RefuelController:pretty_print_train(train)
-    local name, id = self:get_train_name(train)
+---@param train LuaTrain
+---@return string
+local function pretty_print_train(train)
+    local name, id = get_train_name(train)
     if id then return string.format('[train=%d] %s', id, name or '') end
     return '<unknown train>'
 end
 
+------------------------------------------------------------------------
+
+--- Creates a refuel stop name. If a group is present, add it to the refuel stop name
 ---@param group string?
 ---@return string
-function RefuelController:create_stop_name(group)
-    return group and (self.default_stop_name .. ' ' .. group) or self.default_stop_name
+local function create_refuel_stop_name(group)
+    return group and (RefuelController.default_stop_name .. ' ' .. group) or RefuelController.default_stop_name
 end
 
 ---@param stops LuaEntity[]
----@param name string
+---@param name  string
 ---@return boolean current
-local function stops_are_current(stops, name)
+local function all_stops_match_name(stops, name)
+    assert(name) -- do not allow nil
     for _, stop in pairs(stops) do
         if not (stop.valid and stop.backer_name == name) then return false end
     end
@@ -135,11 +133,13 @@ end
 
 ---@param name string
 ---@return LuaEntity[] fuel_stops
-function RefuelController:locate_stops(name)
-    local cached = self.refuel_stops[name]
+local function locate_refuel_stops(name)
+    assert(name)
+
+    local cached = RefuelController.refuel_stops[name]
 
     -- a cached stop may have been destroyed or renamed; either one invalidates the entry
-    if cached and (game.tick - MAX_CACHE_AGE < cached.tick) and stops_are_current(cached.refuel_stops, name) then
+    if cached and (game.tick - MAX_CACHE_AGE < cached.tick) and all_stops_match_name(cached.refuel_stops, name) then
         return cached.refuel_stops
     end
 
@@ -149,12 +149,12 @@ function RefuelController:locate_stops(name)
     }
 
     if #stops > 0 then
-        self.refuel_stops[name] = {
+        RefuelController.refuel_stops[name] = {
             refuel_stops = stops,
             tick = game.tick,
         }
     else
-        self.refuel_stops[name] = nil
+        RefuelController.refuel_stops[name] = nil
     end
 
     return stops
@@ -162,55 +162,58 @@ end
 
 ---@param train LuaTrain
 ---@return string? group the train's group, or the group saved while it is out for refueling
-function RefuelController:effective_group(train)
+function group_name(train)
     if train.group ~= '' then return train.group end
 
-    local save_group = self:data().train_groups[train.id]
+    local save_group = RefuelController:data().train_groups[train.id]
     return save_group and save_group.group or nil
 end
 
 ---@param train LuaTrain
 ---@return string? stop_name the refuel stop name that applies to this train
-function RefuelController:get_refuel_stop_name(train)
-    local train_group = self:effective_group(train)
+local function get_refuel_stop_name(train)
+    local train_group = group_name(train)
 
-    if self.enable_train_groups and train_group then
-        local group_name = self:create_stop_name(train_group)
-        if #self:locate_stops(group_name) > 0 then return group_name end
+    local refuel_stop_name = nil
+    if RefuelController.enable_train_groups and train_group then
+        refuel_stop_name = create_refuel_stop_name(train_group)
+        if #locate_refuel_stops(refuel_stop_name) > 0 then return refuel_stop_name end
     end
 
-    local name = self:create_stop_name()
-    if #self:locate_stops(name) > 0 then return name end
+    refuel_stop_name = create_refuel_stop_name()
+    if #locate_refuel_stops(refuel_stop_name) > 0 then return refuel_stop_name end
 
     return nil
 end
 
 ---@param train LuaTrain
 ---@return LuaEntity[] fuel_stops
-function RefuelController:get_refuel_stops(train)
-    local name = self:get_refuel_stop_name(train)
-    return name and self:locate_stops(name) or {}
+local function get_refuel_stops(train)
+    local name = get_refuel_stop_name(train)
+    return name and locate_refuel_stops(name) or {}
 end
 
 ---@param train   LuaTrain
 ---@param station LuaEntity | string
 ---@return boolean is_refuel_stop true if station is a refuel_stop for this train
-function RefuelController:is_refuel_stop(train, station)
-    -- every stop locate_stops returns is named for the key it was queried with, so this is a name test
+local function is_refuel_stop(train, station)
+    -- every stop locate_refuel_stops returns is named for the key it was queried with, so this is a name test
     local station_name = type(station) == 'string' and station or station.backer_name
     if not station_name then return false end
 
-    return station_name == self:get_refuel_stop_name(train)
+    return station_name == get_refuel_stop_name(train)
 end
+
+------------------------------------------------------------------------
 
 ---@param train LuaTrain
 ---@return uint64? refuel_stop_id unit number of the stop the train was sent to
 function RefuelController:schedule_refueling(train)
     local schedule = train.get_schedule()
 
-    local refuel_stops = self:get_refuel_stops(train)
+    local refuel_stops = get_refuel_stops(train)
     if #refuel_stops == 0 then
-        const:print { const:locale('stop_not_found'), self:pretty_print_train(train) }
+        const:print { const:locale('stop_not_found'), pretty_print_train(train) }
         return nil
     end
 
@@ -223,7 +226,7 @@ function RefuelController:schedule_refueling(train)
     }
 
     if not result.found_path then
-        const:print { const:locale('stop_not_accessible'), self:pretty_print_train(train), assert(refuel_stops[1]).unit_number }
+        const:print { const:locale('stop_not_accessible'), pretty_print_train(train), assert(refuel_stops[1]).unit_number }
         return nil
     end
 
@@ -249,7 +252,7 @@ function RefuelController:schedule_refueling(train)
         local record = assert(records[current]) --[[@as AddRecordData ]]
         -- refueling on a temporary record is not supported
         if record.temporary then
-            const:print { const:locale('temp_stop_not_supported'), self:pretty_print_train(train) }
+            const:print { const:locale('temp_stop_not_supported'), pretty_print_train(train) }
             return nil
         end
 
@@ -259,7 +262,7 @@ function RefuelController:schedule_refueling(train)
             group = train.group,
             group_schedule = records,
             group_interrupts = interrupts,
-            refuel_stop_id = assert(refuel_stop.unit_number)
+            refuel_stop_id = assert(refuel_stop.unit_number),
         }
 
         data.train_groups[train.id] = save_group
@@ -290,14 +293,14 @@ end
 
 ---@param train LuaTrain
 ---@return boolean has_stop true if any refuel stop is already scheduled for this train
-function RefuelController:check_for_stop_in_schedule(train)
+local function check_for_stop_in_schedule(train)
     local schedule = train.get_schedule()
     local records = schedule.get_records()
 
     if not records then return false end
 
     -- temporary records must be included; schedule_refueling adds its refuel stop as a temporary record
-    local stop_name = self:get_refuel_stop_name(train)
+    local stop_name = get_refuel_stop_name(train)
     if not stop_name then return false end
 
     for _, record in pairs(records) do
@@ -309,15 +312,15 @@ end
 
 ---@param train LuaTrain
 ---@return uint64? refuel_stop_id unit number of the stop the train was sent to
-function RefuelController:restore_schedule(train)
+local function restore_schedule(train)
     local schedule = train.get_schedule()
 
-    local data = self:data()
+    local data = RefuelController:data()
 
     local save_group = data.train_groups[train.id]
     data.train_groups[train.id] = nil
 
-    if not (self.enable_train_groups and save_group) then return nil end
+    if not (RefuelController.enable_train_groups and save_group) then return nil end
 
     -- restore train group
     schedule.set_records(save_group.group_schedule)
@@ -339,13 +342,15 @@ function RefuelController:restore_schedule(train)
     return save_group.refuel_stop_id
 end
 
-function RefuelController:check_refuel(train)
+------------------------------------------------------------------------
+
+local function check_refuel(train)
     if not (train and train.valid) then return false end
 
     local locomotives = train.locomotives --[[@as table<string, LuaEntity[]>]]
     for _, movers in pairs(locomotives) do
         for _, locomotive in ipairs(movers) do
-            if not self.ignored_train_types[locomotive.name] then
+            if not RefuelController.ignored_train_types[locomotive.name] then
                 local fuelInventory = locomotive.get_fuel_inventory()
                 local totalFuelValue = locomotive.burner and locomotive.burner.remaining_burning_fuel or 0
 
@@ -354,13 +359,53 @@ function RefuelController:check_refuel(train)
                         totalFuelValue = totalFuelValue + item.count * prototypes.item[item.name].fuel_value
                     end
                 end
-                if (totalFuelValue / 1000000) <= self.min_fuel_value then return true end
+                if (totalFuelValue / 1000000) <= RefuelController.min_fuel_value then return true end
             end
         end
     end
 
     return false
 end
+
+local function clean_schedule()
+    local data = RefuelController:data()
+
+    -- iterate the dispatch records, not every train; this does not depend on the stop name still matching
+    for train_id in pairs(data.train_groups) do
+        local train = game.train_manager.get_train_by_id(train_id)
+        if train and train.valid then
+            restore_schedule(train)
+        else
+            data.train_groups[train_id] = nil
+        end
+    end
+end
+
+------------------------------------------------------------------------
+-- Public API
+------------------------------------------------------------------------
+
+---@param name string
+function RefuelController:addExclusion(name)
+    if not name then return end
+    self.ignored_train_types[name] = true
+end
+
+--- Trains deleted outright raise no event, so entries can only be pruned by checking existence.
+function RefuelController:cleanupStorage()
+    local data = self:data()
+
+    for _, entries in pairs { data.train_groups, data.last_station } do
+        for train_id in pairs(entries) do
+            local train = game.train_manager.get_train_by_id(train_id)
+            if not (train and train.valid) then entries[train_id] = nil end
+        end
+    end
+end
+
+------------------------------------------------------------------------
+-- Events
+------------------------------------------------------------------------
 
 ---@param event EventData.on_train_created
 function RefuelController:trainCreated(event)
@@ -380,18 +425,6 @@ function RefuelController:trainCreated(event)
     end
 end
 
----Trains deleted outright raise no event, so entries can only be pruned by checking existence.
-function RefuelController:cleanup_storage()
-    local data = self:data()
-
-    for _, entries in pairs { data.train_groups, data.last_station } do
-        for train_id in pairs(entries) do
-            local train = game.train_manager.get_train_by_id(train_id)
-            if not (train and train.valid) then entries[train_id] = nil end
-        end
-    end
-end
-
 ---@param event EventData.on_train_changed_state
 function RefuelController:trainStateWaitStation(event)
     local train = event.train
@@ -406,7 +439,7 @@ function RefuelController:trainStateWaitStation(event)
     if not (train.station and train.station.valid) then return end
 
     -- record the stop if it is not a temp stop or is a refuel stop
-    if (not temp_stop) or self:is_refuel_stop(train, train.station) then
+    if (not temp_stop) or is_refuel_stop(train, train.station) then
         data.last_station[train.id] = train.station
     end
 end
@@ -425,52 +458,38 @@ function RefuelController:trainStateLeaveStation(event)
         return
     end
 
-    if self:is_refuel_stop(train, station) then
+    if is_refuel_stop(train, station) then
         -- train left a refuel station.
-        self:restore_schedule(train)
+        restore_schedule(train)
     else
         -- train left a regular station
-        local needs_refuel = self:check_refuel(train)
-        local stop_is_in_schedule = self:check_for_stop_in_schedule(train)
+        local needs_refuel = check_refuel(train)
+        local stop_is_in_schedule = check_for_stop_in_schedule(train)
 
         if needs_refuel and not stop_is_in_schedule then
             local stop_id = self:schedule_refueling(train)
             if stop_id and self.log_schedule then
-                const:print { const:locale('schedule_refuel'), self:pretty_print_train(train), stop_id }
+                const:print { const:locale('schedule_refuel'), pretty_print_train(train), stop_id }
             end
         elseif stop_is_in_schedule and not needs_refuel then
-            local stop_id = self:restore_schedule(train)
+            local stop_id = restore_schedule(train)
             if stop_id and self.log_schedule then
-                const:print { const:locale('cancel_refuel'), self:pretty_print_train(train), stop_id }
+                const:print { const:locale('cancel_refuel'), pretty_print_train(train), stop_id }
             end
-        end
-    end
-end
-
-function RefuelController:clean_schedule()
-    local data = self:data()
-
-    -- iterate the dispatch records, not every train; this does not depend on the stop name still matching
-    for train_id in pairs(data.train_groups) do
-        local train = game.train_manager.get_train_by_id(train_id)
-        if train and train.valid then
-            self:restore_schedule(train)
-        else
-            data.train_groups[train_id] = nil
         end
     end
 end
 
 local config_table = {
     [const.settings.stop_name] = function(self)
-        self:clean_schedule()
-        self:init_name(self.default_stop_name)
+        clean_schedule()
+        self:initName(self.default_stop_name)
     end,
     [const.settings.min_fuel_value] = function(self)
-        self:init_fuel(self.min_fuel_value)
+        self:initFuel(self.min_fuel_value)
     end,
     [const.settings.log_schedule] = function(self)
-        self:init_log()
+        self:initLog()
     end,
 }
 

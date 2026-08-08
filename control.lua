@@ -27,7 +27,7 @@ local function on_train_created(event)
 end
 
 local function on_cleanup()
-    RefuelController:cleanup_storage()
+    RefuelController:cleanupStorage()
 end
 
 ---@param event EventData.on_runtime_mod_setting_changed
@@ -40,7 +40,7 @@ local function on_configuration_changed()
     RefuelController:loadConfig()
 
     -- a prototype or mod change can delete trains outright; drop what they left behind
-    RefuelController:cleanup_storage()
+    RefuelController:cleanupStorage()
 end
 
 local function register_events()

@@ -161,34 +161,47 @@ function RefuelController:locate_stops(name)
     return stops
 end
 
----@param train       LuaTrain
----@param train_group string?
----@return LuaEntity[] fuel_stops
-function RefuelController:get_refuel_stops(train, train_group)
-    local fuel_stops
-    train_group = train_group or train.group
+---@param train LuaTrain
+---@return string? group the train's group, or the group saved while it is out for refueling
+function RefuelController:effective_group(train)
+    if train.group ~= '' then return train.group end
 
-    if self.enable_train_groups and (train_group ~= '') then
-        fuel_stops = self:locate_stops(self:create_stop_name(train_group))
-        if #fuel_stops > 0 then return fuel_stops end
+    local save_group = self:data().train_groups[train.id]
+    return save_group and save_group.group or nil
+end
+
+---@param train LuaTrain
+---@return string? stop_name the refuel stop name that applies to this train
+function RefuelController:get_refuel_stop_name(train)
+    local train_group = self:effective_group(train)
+
+    if self.enable_train_groups and train_group then
+        local group_name = self:create_stop_name(train_group)
+        if #self:locate_stops(group_name) > 0 then return group_name end
     end
 
-    return self:locate_stops(self:create_stop_name())
+    local name = self:create_stop_name()
+    if #self:locate_stops(name) > 0 then return name end
+
+    return nil
+end
+
+---@param train LuaTrain
+---@return LuaEntity[] fuel_stops
+function RefuelController:get_refuel_stops(train)
+    local name = self:get_refuel_stop_name(train)
+    return name and self:locate_stops(name) or {}
 end
 
 ---@param train   LuaTrain
 ---@param station LuaEntity | string
 ---@return boolean is_refuel_stop true if station is a refuel_stop for this train
 function RefuelController:is_refuel_stop(train, station)
-    local data = self:data()
-
+    -- every stop locate_stops returns is named for the key it was queried with, so this is a name test
     local station_name = type(station) == 'string' and station or station.backer_name
-    local train_group = ((train.group ~= '') and train.group) or (data.train_groups[train.id] and data.train_groups[train.id].group) or nil
-    local refuel_stops = self:get_refuel_stops(train, train_group)
-    for _, refuel_stop in pairs(refuel_stops) do
-        if refuel_stop and refuel_stop.valid and refuel_stop.backer_name == station_name then return true end
-    end
-    return false
+    if not station_name then return false end
+
+    return station_name == self:get_refuel_stop_name(train)
 end
 
 ---@param train LuaTrain
@@ -285,8 +298,11 @@ function RefuelController:check_for_stop_in_schedule(train)
     if not records then return false end
 
     -- temporary records must be included; schedule_refueling adds its refuel stop as a temporary record
+    local stop_name = self:get_refuel_stop_name(train)
+    if not stop_name then return false end
+
     for _, record in pairs(records) do
-        if self:is_refuel_stop(train, record.station or '') then return true end
+        if record.station == stop_name then return true end
     end
 
     return false

@@ -36,12 +36,7 @@ local RefuelController = {
     log_schedule = false,
     enable_train_groups = true,
     refuel_stops = {},
-    ignored_train_types = {
-        -- ElectricTrain mod - https://mods.factorio.com/mod/ElectricTrain2
-        ['et-electric-locomotive-1'] = true,
-        ['et-electric-locomotive-2'] = true,
-        ['et-electric-locomotive-3'] = true,
-    },
+    ignored_train_types = {},
 }
 
 ------------------------------------------------------------------------
@@ -49,6 +44,10 @@ local RefuelController = {
 function RefuelController:init()
     storage.train_groups = storage.train_groups or {}
     storage.last_station = storage.last_station or {}
+
+    for _, locomotive in pairs(const.ignored_locomotives) do
+        if prototypes.entity[locomotive] then RefuelController:addExclusion(locomotive) end
+    end
 end
 
 ------------------------------------------------------------------------

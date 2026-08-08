@@ -17,6 +17,7 @@ Date: ????
       last train in that group.
     - Restoring a train group no longer selects an invalid stop if the group schedule was shortened
       while the train was refueling.
+    - Only register locomotives that have prototypes for exclusion.
   Changes:
     - Internal bookkeeping for trains that no longer exist is now discarded instead of being kept
       in the save file forever. Existing save files are cleaned up once on load.

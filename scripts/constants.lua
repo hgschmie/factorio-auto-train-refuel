@@ -10,7 +10,14 @@ local Constants = {
         train_group = 'auto_train_refuel-train-group'
     },
 
-    prefix = 'hps__atf-'
+    prefix = 'hps__atf-',
+
+    ignored_locomotives = {
+        -- Electric Locomotives - https://mods.factorio.com/mod/electric-locomotives
+        'et-electric-locomotive-1',
+        'et-electric-locomotive-2',
+        'et-electric-locomotive-3',
+    },
 }
 
 ------------------------------------------------------------------------

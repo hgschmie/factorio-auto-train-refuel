@@ -64,8 +64,13 @@ Enable support for trains in train groups. If this setting is not active, trains
 
 ----
 
-## Legal stuff
+## Credits
 
-This mod is (C) 2025-2026 Henning Schmiedehausen (@hgschmie), licensed under the MIT license.
+This mod is the spiritual successor to [Train Refuel stop](https://mods.factorio.com/mod/TrainRefuelstop) which was never ported to Factorio 2.0. The original code was written by @stever1388 and put into public domain. Most of the code has been rewritten for Factorio 2.0.
 
-It is the spiritual successor to [Train Refuel stop](https://mods.factorio.com/mod/TrainRefuelstop) which was never ported to Factorio 2.0. The original code was written by @stever1388 and put into public domain. Most of the code has been rewritten for Factorio 2.0.
+## Legal & Copyright
+
+The code was partially written and reviewed by AI coding agents. If you are fundamentally opposed to using AI tools to develop software and improve software quality, you are free to not install it.
+
+--------------------------------------------------
+Copyright (C) 2025-2026 Henning Schmiedehausen (@hgschmie), licensed under the MIT license.
